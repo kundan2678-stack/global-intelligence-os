@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String      @id @default(uuid()) @db.Uuid
+  email      String      @unique
+  name       String
+  created_at DateTime    @default(now())
+  workspaces Workspace[] 
+}
+
+model Workspace {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String
+  description String?
+  owner_id    String    @db.Uuid
+  owner       User      @relation(fields: [owner_id], references: [id])
+  created_at  DateTime  @default(now())
+  datasets    Dataset[] 
+}
+
+model Source {
+  id                String    @id @default(uuid()) @db.Uuid
+  name              String
+  url               String?
+  provider          String?
+  source_type       String?
+  reliability_score Decimal?
+  created_at        DateTime  @default(now())
+  datasets          Dataset[]
+}
+
+model Dataset {
+  id           String           @id @default(uuid()) @db.Uuid
+  workspace_id String           @db.Uuid
+  workspace    Workspace        @relation(fields: [workspace_id], references: [id])
+  name         String
+  description  String?
+  format       String
+  source_id    String?          @db.Uuid
+  source       Source?          @relation(fields: [source_id], references: [id])
+  created_at   DateTime         @default(now())
+  updated_at   DateTime         @updatedAt
+  versions     DatasetVersion[] 
+}
+
+model DatasetVersion {
+  id           String   @id @default(uuid()) @db.Uuid
+  dataset_id   String   @db.Uuid
+  dataset      Dataset  @relation(fields: [dataset_id], references: [id])
+  version      Int
+  storage_path String
+  row_count    BigInt?
+  column_count Int?
+  checksum     String?
+  created_at   DateTime @default(now())
+}

@@ -1,37 +1,92 @@
+
 require('dotenv').config();
 const express = require('express');
-const { OpenAI } = require('openai');
+const { PrismaClient } = require('@prisma/client'); // Prisma ko import kiya
 
 const app = express();
+const prisma = new PrismaClient(); // Prisma ka connection on kiya
+
+const cors = require('cors');
+app.use(cors()); // Isko app.use(express.json()) ke theek upar ya neeche likhein
+
 app.use(express.json()); 
 
-// OpenAI ka connection set kar rahe hain (.env file se key utha kar)
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+// ==========================================
+// STEP 2.9: CORE BACKEND APIs
+// ==========================================
+
+// 1. Health API (Server check karne ke liye)
+app.get('/api/health', (req, res) => {
+    res.json({ status: '✅ Server is running perfectly!', database: 'Connected' });
 });
 
-// Ye wo route hai jo Frontend se baat karegi
-app.post('/api/chat', async (req, res) => {
+// Create User API (Naya User banane ke liye)
+app.post('/api/users', async (req, res) => {
     try {
-        const userMessage = req.body.message; 
-
-        // OpenAI ko message bhejna
-        const response = await openai.chat.completions.create({
-            model: "gpt-4o-mini", // Aapke paas jo model ho wo use karein
-            messages: [{ role: "user", content: userMessage }],
+        const user = await prisma.user.create({
+            data: { 
+                email: 'admin@globalos.com', 
+                name: 'Kundan' 
+            }
         });
-
-        // OpenAI ka reply wapas frontend ko bhej dena
-        res.json({ reply: response.choices[0].message.content });
-
+        res.status(201).json(user);
     } catch (error) {
-        console.error("OpenAI Error:", error.message);
-        res.status(500).json({ error: "Kuch galat ho gaya, check logs." });
+        console.error(error);
+        res.status(500).json({ error: 'Failed to create user' });
     }
 });
 
-// Server ko port 3000 par start karna
-const PORT = 3000;
+// 2. Create Workspace API
+app.post('/api/workspaces', async (req, res) => {
+    try {
+        const { name, description, owner_id } = req.body;
+        const workspace = await prisma.workspace.create({
+            data: { name, description, owner_id }
+        });
+        res.status(201).json(workspace);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to create workspace' });
+    }
+});
+
+// 3. Get All Workspaces API
+app.get('/api/workspaces', async (req, res) => {
+    try {
+        const workspaces = await prisma.workspace.findMany();
+        res.json(workspaces);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch workspaces' });
+    }
+});
+
+// 4. Create Dataset Metadata API
+app.post('/api/datasets', async (req, res) => {
+    try {
+        const { workspace_id, name, description, format } = req.body;
+        const dataset = await prisma.dataset.create({
+            data: { workspace_id, name, description, format }
+        });
+        res.status(201).json(dataset);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to create dataset' });
+    }
+});
+
+// 5. Get All Datasets API
+app.get('/api/datasets', async (req, res) => {
+    try {
+        const datasets = await prisma.dataset.findMany();
+        res.json(datasets);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch datasets' });
+    }
+});
+
+// ==========================================
+// SERVER START
+// ==========================================
+const PORT = process.env.PORT || 5000; // Step 2.3 ke hisaab se Port 5000 set kiya
 app.listen(PORT, () => {
-    console.log(`✅ Server perfectly running on port ${PORT}`);
+    console.log(`🚀 Global Intelligence OS Backend running on http://localhost:${PORT}`);
 });
